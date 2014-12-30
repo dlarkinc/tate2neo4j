@@ -3,6 +3,7 @@ package io.larkin.tate2neo.app;
 import io.larkin.tate2neo.Artist;
 import io.larkin.tate2neo.Artwork;
 import io.larkin.tate2neo.Birth;
+import io.larkin.tate2neo.CatalogueGroup;
 import io.larkin.tate2neo.Movement;
 import io.larkin.tate2neo.Subject;
 import io.larkin.tate2neo.config.DefaultConfig;
@@ -45,6 +46,7 @@ public class ImportApplication implements CommandLineRunner {
 	private ILookupRepository lookupRepository;
 
 	private final String ARTIST_KEY = "artist:";
+	private final String CATALOGUE_GROUP_KEY = "catalogue_group:";
 	private final String MOVEMENT_KEY = "movement:";
 	private final String PLACE_KEY = "place:";
 	private final String SUBJECT_KEY = "subject:";
@@ -53,6 +55,7 @@ public class ImportApplication implements CommandLineRunner {
 
     private final Label ARTIST = DynamicLabel.label("Artist");
     private final Label ARTWORK = DynamicLabel.label("Artwork");
+    private final Label CATALOGUE_GROUP = DynamicLabel.label("CatalogueGroup");
     private final Label MOVEMENT = DynamicLabel.label("Movement");
     private final Label PLACE = DynamicLabel.label("Place");
     private final Label SUBJECT = DynamicLabel.label("Subject");
@@ -290,9 +293,6 @@ public class ImportApplication implements CommandLineRunner {
 	 * @param subjects
 	 */
 	private void connectArtworkToSubjects(long artworkNode, List<Subject> subjects) {
-		
-		// TODO: Refactor to reuse add subject node code for the 3 levels
-		
 		for (Subject subject0 : subjects) {   // container for subjects
 			Long s0Node = getOrCreateSubjectNode(subject0);
         	if (subject0.getChildren() != null) {
@@ -307,6 +307,39 @@ public class ImportApplication implements CommandLineRunner {
 	        	}
         	}
         }
+	}
+	
+	/**
+	 * Connect artwork to a catalogue group
+	 * @param artworkNode
+	 * @param catalogueGroup
+	 */
+	private void connectArtworkToCatalogueGroup(Long artworkNode, CatalogueGroup catalogueGroup) {
+		Long cgNode = getOrCreateCatalogueNode(catalogueGroup);
+		inserter.createRelationship(artworkNode, cgNode, FEATURES, null);
+	}
+
+	/**
+	 * Get or create catalogue group node. If the node doesn't exist, create it.
+	 * 
+	 * @param catalogueGroup
+	 * @return Physical node id
+	 */
+	 private Long getOrCreateCatalogueNode(CatalogueGroup catalogueGroup) {
+		Long cgNode = null;
+		String value = lookupRepository.get(this.MOVEMENT_KEY + catalogueGroup.getId());
+		if (value == null) {
+			HashMap<String, Object> properties = new HashMap<>();
+	        properties.put("shortTitle", catalogueGroup.getShortTitle());
+	        properties.put("id", catalogueGroup.getId());
+	        cgNode = inserter.createNode(properties, CATALOGUE_GROUP);
+	        
+	        // store new node id in lookup repository
+	        lookupRepository.add(this.CATALOGUE_GROUP_KEY + catalogueGroup.getId(), Long.toString(cgNode));
+		} else {
+			cgNode = Long.parseLong(value);
+		}
+		return cgNode;
 	}
 
 	/**
@@ -345,7 +378,12 @@ public class ImportApplication implements CommandLineRunner {
 				connectArtworkToArtists(artworkNode, artwork.getContributors());
 			} catch (Exception e) {
     			System.out.println("Problem connecting artist(s) to " + artwork.getAcno());
-    		}	        
+			}
+			
+			if (artwork.getCatalogueGroup() != null) {
+				connectArtworkToCatalogueGroup(artworkNode, artwork.getCatalogueGroup());
+			}
+			
 	        connectArtworkToMovements(artworkNode, artwork.getMovements());
 	        	        
 	        // connect subjects with the artwork
@@ -356,7 +394,7 @@ public class ImportApplication implements CommandLineRunner {
 		
         inserter.shutdown();
     }
-	
+
 	/**
 	 * Entry point into application. Delegates to Spring boot command line runner.
 	 * 

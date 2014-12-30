@@ -13,12 +13,22 @@ public class Artwork {
 	
 	private String title;
 	
-	List<Artist> contributors;
+	private List<Artist> contributors;
 	
-	List<Movement> movements;
+	private List<Movement> movements;
+	
+	private CatalogueGroup catalogueGroup;
 
-	Subject subjects;
+	private Subject subjects;
 	
+	public CatalogueGroup getCatalogueGroup() {
+		return catalogueGroup;
+	}
+
+	public void setCatalogueGroup(CatalogueGroup catalogueGroup) {
+		this.catalogueGroup = catalogueGroup;
+	}
+
 	public Subject getSubjects() {
 		return subjects;
 	}
