@@ -1,6 +1,6 @@
 package io.larkin.tate2neo;
 
-import io.larkin.tate2neo.ImportApplication;
+import io.larkin.tate2neo.app.ImportApplication;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;

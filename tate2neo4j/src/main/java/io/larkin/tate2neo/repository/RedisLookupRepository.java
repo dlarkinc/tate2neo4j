@@ -4,6 +4,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Repository;
 
+/**
+ * Basic implementation of Redis key-value add and get operations.
+ * 
+ * @author Larkin.Cunningham
+ *
+ */
 @Repository
 public class RedisLookupRepository implements ILookupRepository {
 	

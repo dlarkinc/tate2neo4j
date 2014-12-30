@@ -16,6 +16,13 @@ import org.springframework.stereotype.Component;
 
 import static java.nio.file.FileVisitResult.*;
 
+/**
+ * Utility class to recursively get a list of files within a given directory
+ * for a given pattern.
+ *  
+ * @author Larkin.Cunningham
+ *
+ */
 public class FileFinder {
 
 	public static class Finder extends SimpleFileVisitor<Path> {
@@ -30,6 +37,7 @@ public class FileFinder {
 		public List<Path> getFileList() {
 			return fileList;
 		}
+		
 	    // Compares the glob pattern against
 	    // the file or directory name.
 	    void find(Path file) {
