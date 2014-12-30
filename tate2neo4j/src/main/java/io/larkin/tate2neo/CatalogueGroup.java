@@ -5,7 +5,7 @@ import org.codehaus.jackson.annotate.JsonIgnoreProperties;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class CatalogueGroup {
 	
-    private int id;
+    private Integer id;
     
 	private String accessionRanges;
     
@@ -15,11 +15,11 @@ public class CatalogueGroup {
     
     private String shortTitle;
 
-	public int getId() {
+	public Integer getId() {
 		return id;
 	}
 
-	public void setId(int id) {
+	public void setId(Integer id) {
 		this.id = id;
 	}
 

@@ -374,7 +374,7 @@ public class ImportApplication implements CommandLineRunner {
     			System.out.println("Problem connecting artist(s) to " + artwork.getAcno());
 			}
 			
-			if (artwork.getCatalogueGroup() != null) {
+			if (artwork.getCatalogueGroup() != null && artwork.getCatalogueGroup().getId() != null) {
 				connectArtworkToCatalogueGroup(artworkNode, artwork.getCatalogueGroup());
 			}
 			
