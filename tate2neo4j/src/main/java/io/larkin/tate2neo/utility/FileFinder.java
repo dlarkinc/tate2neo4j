@@ -12,8 +12,6 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.springframework.stereotype.Component;
-
 import static java.nio.file.FileVisitResult.*;
 
 /**

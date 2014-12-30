@@ -325,7 +325,7 @@ public class ImportApplication implements CommandLineRunner {
 		String value = lookupRepository.get(this.CATALOGUE_GROUP_KEY + catalogueGroup.getId());
 		if (value == null) {
 			HashMap<String, Object> properties = new HashMap<>();
-	        properties.put("shortTitle", catalogueGroup.getShortTitle());
+	        properties.put("shortTitle", catalogueGroup.getShortTitle() != null ? catalogueGroup.getShortTitle() : "[no short title]");
 	        properties.put("id", catalogueGroup.getId());
 	        cgNode = inserter.createNode(properties, CATALOGUE_GROUP);
 	        
@@ -368,23 +368,24 @@ public class ImportApplication implements CommandLineRunner {
 		files = FileFinder.getFileList(artworksDirectory, "*.json");		
 		for (Path f : files) {
 			Artwork artwork = new ObjectMapper().readValue(f.toFile(), Artwork.class);
-			Long artworkNode = createArtworkNode(artwork);			
 			try {
+				Long artworkNode = createArtworkNode(artwork);			
+			
 				connectArtworkToArtists(artworkNode, artwork.getContributors());
-			} catch (Exception e) {
-    			System.out.println("Problem connecting artist(s) to " + artwork.getAcno());
+				
+				if (artwork.getCatalogueGroup() != null && artwork.getCatalogueGroup().getId() != null) {
+					connectArtworkToCatalogueGroup(artworkNode, artwork.getCatalogueGroup());
+				}
+				
+		        connectArtworkToMovements(artworkNode, artwork.getMovements());
+		        	        
+		        // connect subjects with the artwork
+		        if (artwork.getSubjects() != null && artwork.getSubjects().getChildren() != null) {
+		        	connectArtworkToSubjects(artworkNode, artwork.getSubjects().getChildren());
+		        }
+	        } catch (Exception e) {
+    			System.out.println("Problem with artwork: " + artwork.getAcno());
 			}
-			
-			if (artwork.getCatalogueGroup() != null && artwork.getCatalogueGroup().getId() != null) {
-				connectArtworkToCatalogueGroup(artworkNode, artwork.getCatalogueGroup());
-			}
-			
-	        connectArtworkToMovements(artworkNode, artwork.getMovements());
-	        	        
-	        // connect subjects with the artwork
-	        if (artwork.getSubjects() != null && artwork.getSubjects().getChildren() != null) {
-	        	connectArtworkToSubjects(artworkNode, artwork.getSubjects().getChildren());
-	        }
 		}
 		
         inserter.shutdown();
