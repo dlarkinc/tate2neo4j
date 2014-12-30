@@ -1,11 +1,5 @@
-package io.larkin.tate2neo.app;
+package io.larkin.tate2neo;
 
-import io.larkin.tate2neo.Artist;
-import io.larkin.tate2neo.Artwork;
-import io.larkin.tate2neo.Birth;
-import io.larkin.tate2neo.CatalogueGroup;
-import io.larkin.tate2neo.Movement;
-import io.larkin.tate2neo.Subject;
 import io.larkin.tate2neo.config.DefaultConfig;
 import io.larkin.tate2neo.repository.ILookupRepository;
 import io.larkin.tate2neo.utility.FileFinder;
