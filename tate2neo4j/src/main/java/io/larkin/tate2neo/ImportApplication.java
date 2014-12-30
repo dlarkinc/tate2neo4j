@@ -54,11 +54,12 @@ public class ImportApplication implements CommandLineRunner {
     private final Label PLACE = DynamicLabel.label("Place");
     private final Label SUBJECT = DynamicLabel.label("Subject");
     
-    private final RelationshipType INVOLVED_IN = DynamicRelationshipType.withName("INVOLVED_IN");
+    private final RelationshipType BELONGS_TO = DynamicRelationshipType.withName("BELONGS_TO");
     private final RelationshipType BORN_IN = DynamicRelationshipType.withName("BORN_IN");
     private final RelationshipType CONTRIBUTED_TO = DynamicRelationshipType.withName("CONTRIBUTED_TO");
-    private final RelationshipType PART_OF = DynamicRelationshipType.withName("PART_OF");
     private final RelationshipType FEATURES = DynamicRelationshipType.withName("FEATURES");
+    private final RelationshipType INVOLVED_IN = DynamicRelationshipType.withName("INVOLVED_IN");
+    private final RelationshipType PART_OF = DynamicRelationshipType.withName("PART_OF");
     private final RelationshipType TYPE_OF = DynamicRelationshipType.withName("TYPE_OF");
 
     /**
@@ -310,7 +311,7 @@ public class ImportApplication implements CommandLineRunner {
 	 */
 	private void connectArtworkToCatalogueGroup(Long artworkNode, CatalogueGroup catalogueGroup) {
 		Long cgNode = getOrCreateCatalogueNode(catalogueGroup);
-		inserter.createRelationship(artworkNode, cgNode, FEATURES, null);
+		inserter.createRelationship(artworkNode, cgNode, BELONGS_TO, null);
 	}
 
 	/**
@@ -321,7 +322,7 @@ public class ImportApplication implements CommandLineRunner {
 	 */
 	 private Long getOrCreateCatalogueNode(CatalogueGroup catalogueGroup) {
 		Long cgNode = null;
-		String value = lookupRepository.get(this.MOVEMENT_KEY + catalogueGroup.getId());
+		String value = lookupRepository.get(this.CATALOGUE_GROUP_KEY + catalogueGroup.getId());
 		if (value == null) {
 			HashMap<String, Object> properties = new HashMap<>();
 	        properties.put("shortTitle", catalogueGroup.getShortTitle());
