@@ -40,23 +40,29 @@ public class ImportApplication implements CommandLineRunner {
 	private ILookupRepository lookupRepository;
 
 	private final String ARTIST_KEY = "artist:";
-	private final String ARTIST_BY_NAME_KEY = "artistbn:";
+	private final String PERSON_BY_NAME_KEY = "person_by_name:";
 	private final String CATALOGUE_GROUP_KEY = "catalogue_group:";
+	private final String CLASSIFICATION_KEY = "classification:";
+	private final String MEDIUM_KEY = "medium:";
 	private final String MOVEMENT_KEY = "movement:";
 	private final String PLACE_KEY = "place:";
 	private final String SUBJECT_KEY = "subject:";
 	
 	private BatchInserter inserter;
 
-    private final Label PERSON = DynamicLabel.label("Person");
     private final Label ARTWORK = DynamicLabel.label("Artwork");
     private final Label CATALOGUE_GROUP = DynamicLabel.label("CatalogueGroup");
+    private final Label CLASSIFICATION = DynamicLabel.label("Classification");
+    private final Label MEDIUM = DynamicLabel.label("Medium");
     private final Label MOVEMENT = DynamicLabel.label("Movement");
+    private final Label PERSON = DynamicLabel.label("Person");
     private final Label PLACE = DynamicLabel.label("Place");
     private final Label SUBJECT = DynamicLabel.label("Subject");
     
     private final RelationshipType BELONGS_TO = DynamicRelationshipType.withName("BELONGS_TO");
     private final RelationshipType BORN_IN = DynamicRelationshipType.withName("BORN_IN");
+    private final RelationshipType CLASSIFIED_AS = DynamicRelationshipType.withName("CLASSIFIED_AS");
+    private final RelationshipType COMPRISED_OF = DynamicRelationshipType.withName("COMPRISED_OF");
     private final RelationshipType CONTRIBUTED_TO = DynamicRelationshipType.withName("CONTRIBUTED_TO");
     private final RelationshipType FEATURES = DynamicRelationshipType.withName("FEATURES");
     private final RelationshipType INVOLVED_IN = DynamicRelationshipType.withName("INVOLVED_IN");
@@ -104,7 +110,7 @@ public class ImportApplication implements CommandLineRunner {
         lookupRepository.add(this.ARTIST_KEY + artist.getId(), Long.toString(artistNode));
         
         // store artist name in lookup to match against subjects
-        lookupRepository.add(this.ARTIST_BY_NAME_KEY + artist.getName(), Long.toString(artistNode));
+        lookupRepository.add(this.PERSON_BY_NAME_KEY + artist.getName(), Long.toString(artistNode));
         
         return artistNode;
 	}
@@ -115,7 +121,7 @@ public class ImportApplication implements CommandLineRunner {
 	 * @param artwork
 	 * @return Physical node id to allow other nodes connect to the artwork
 	 */
-	private Long createArtworkNode(Artwork artwork) {
+	private Long addArtworkNode(Artwork artwork) {
         Map<String, Object> properties = new HashMap<>();
         properties.put("title", artwork.getTitle());
         properties.put("id", artwork.getId());
@@ -285,13 +291,13 @@ public class ImportApplication implements CommandLineRunner {
         	properties.put("name", subject.getName());
         	
         	// check artist nodes to see if person already exists
-        	String value = lookupRepository.get(this.ARTIST_BY_NAME_KEY + subject.getName());
+        	String value = lookupRepository.get(this.PERSON_BY_NAME_KEY + subject.getName());
         	if (value != null) {
         		return Long.parseLong(value);
         	} else {
         		Long nodeId = inserter.createNode(properties, sLabel);
                 // store artist name in lookup to match against other subjects
-                lookupRepository.add(this.ARTIST_BY_NAME_KEY + subject.getName(), Long.toString(nodeId));
+                lookupRepository.add(this.PERSON_BY_NAME_KEY + subject.getName(), Long.toString(nodeId));
                 return nodeId;
         	}
         } else {
@@ -346,7 +352,7 @@ public class ImportApplication implements CommandLineRunner {
 	 * @param catalogueGroup
 	 * @return Physical node id
 	 */
-	 private Long getOrCreateCatalogueNode(CatalogueGroup catalogueGroup) {
+	private Long getOrCreateCatalogueNode(CatalogueGroup catalogueGroup) {
 		Long cgNode = null;
 		String value = lookupRepository.get(this.CATALOGUE_GROUP_KEY + catalogueGroup.getId());
 		if (value == null) {
@@ -361,6 +367,65 @@ public class ImportApplication implements CommandLineRunner {
 			cgNode = Long.parseLong(value);
 		}
 		return cgNode;
+	}
+
+	/**
+	 * Connect artwork to its classification.
+	 * 
+	 * @param artworkNode
+	 * @param classification
+	 */
+	private void connectArtworkToClassification(Long artworkNode,
+			String classification) {
+		Long clNode = getOrCreateClassification(classification);
+		inserter.createRelationship(artworkNode, clNode, CLASSIFIED_AS, null);
+	}
+
+	/**
+	 * Get or create classification.
+	 * 
+	 * @param classification
+	 * @return
+	 */
+	private Long getOrCreateClassification(String classification) {
+		Long clNode = null;
+		String value = lookupRepository.get(this.CLASSIFICATION_KEY + classification);
+		if (value == null) {
+			HashMap<String, Object> properties = new HashMap<>();
+	        properties.put("name", classification);
+	        clNode = inserter.createNode(properties, CLASSIFICATION);
+	        
+	        // store new node id in lookup repository
+	        lookupRepository.add(this.CLASSIFICATION_KEY + classification, Long.toString(clNode));
+		} else {
+			clNode = Long.parseLong(value);
+		}
+		return clNode;
+	}
+
+	/**
+	 * Parse the medium string to strip out materials used.
+	 * 
+	 * @param artworkNode
+	 * @param medium
+	 */
+	private void connectArtworkToMediums(Long artworkNode, String medium) {
+		String[] mediums = medium.split(",| on | and ");
+		
+		Long mNode = null;
+		for (String m : mediums) {
+			String trimmed = m.trim().toLowerCase();
+			String value = lookupRepository.get(this.MEDIUM_KEY + trimmed);
+			if (value == null) {
+				HashMap<String, Object> properties = new HashMap<>();
+	        	properties.put("name", trimmed);
+	        	mNode = inserter.createNode(properties, MEDIUM);
+	        	lookupRepository.add(this.MEDIUM_KEY + trimmed, Long.toString(mNode));
+			} else {
+				mNode = Long.parseLong(value);
+			}
+			inserter.createRelationship(artworkNode, mNode, COMPRISED_OF, null);
+		}
 	}
 
 	/**
@@ -395,7 +460,7 @@ public class ImportApplication implements CommandLineRunner {
 		for (Path f : files) {
 			Artwork artwork = new ObjectMapper().readValue(f.toFile(), Artwork.class);
 			try {
-				Long artworkNode = createArtworkNode(artwork);			
+				Long artworkNode = addArtworkNode(artwork);			
 			
 				connectArtworkToArtists(artworkNode, artwork.getContributors());
 				
@@ -409,6 +474,17 @@ public class ImportApplication implements CommandLineRunner {
 		        if (artwork.getSubjects() != null && artwork.getSubjects().getChildren() != null) {
 		        	connectArtworkToSubjects(artworkNode, artwork.getSubjects().getChildren());
 		        }
+		        
+		        // connect classification to the artwork
+		        if (artwork.getClassification() != null) {
+		        	connectArtworkToClassification(artworkNode, artwork.getClassification());
+		        }
+		        
+		        // connect mediums to the artwork
+		        if (artwork.getMedium() != null) {
+		        	connectArtworkToMediums(artworkNode, artwork.getMedium());
+		        }
+		        
 	        } catch (Exception e) {
     			System.out.println("Problem with artwork: " + artwork.getAcno());
 			}

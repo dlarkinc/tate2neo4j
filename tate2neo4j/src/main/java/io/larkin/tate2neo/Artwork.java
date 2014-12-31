@@ -13,6 +13,10 @@ public class Artwork {
 	
 	private String title;
 	
+	private String classification;
+	
+	private String medium;
+	
 	private List<Artist> contributors;
 	
 	private List<Movement> movements;
@@ -21,6 +25,22 @@ public class Artwork {
 
 	private Subject subjects;
 	
+	public String getMedium() {
+		return medium;
+	}
+
+	public void setMedium(String medium) {
+		this.medium = medium;
+	}
+
+	public String getClassification() {
+		return classification;
+	}
+
+	public void setClassification(String classification) {
+		this.classification = classification;
+	}
+
 	public CatalogueGroup getCatalogueGroup() {
 		return catalogueGroup;
 	}
