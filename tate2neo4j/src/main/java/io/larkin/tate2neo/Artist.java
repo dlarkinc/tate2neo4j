@@ -3,15 +3,14 @@ package io.larkin.tate2neo;
 import java.util.List;
 
 import org.codehaus.jackson.annotate.JsonIgnoreProperties;
+import org.codehaus.jackson.annotate.JsonProperty;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class Artist {
+public class Artist extends Person {
 	
 	private int id;
 	
 	private int birthYear;
-	
-	private String mda;
 	
 	private String gender;
 	
@@ -79,16 +78,8 @@ public class Artist {
 		this.birthYear = birthYear;
 	}
 
-	public String getMda() {
-		return mda;
-	}
-
-	public void setMda(String mda) {
-		this.mda = mda;
-	}
-
 	public String toString() {
-		String artist = getMda() + " (" + getBirthYear() + ")";
+		String artist = getName() + " (" + getBirthYear() + ")";
 		for (Movement m : getMovements()) {
 			artist += "-- " + m.getName() + " (" + m.getEra().getName() + ")";
 		}

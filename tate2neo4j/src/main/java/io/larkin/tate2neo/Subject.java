@@ -7,6 +7,12 @@ import org.codehaus.jackson.annotate.JsonIgnoreProperties;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class Subject {
 
+	private int id;
+	
+	private String name;
+	
+	private List<Subject> children;
+	
 	public int getId() {
 		return id;
 	}
@@ -31,9 +37,7 @@ public class Subject {
 		this.children = children;
 	}
 
-	private int id;
-	
-	private String name;
-	
-	private List<Subject> children;
+	public boolean isNamedIndividuals() {
+		return this.name.equals("named individuals") ? true : false;
+	}
 }

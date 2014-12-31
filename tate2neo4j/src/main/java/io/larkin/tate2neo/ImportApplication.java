@@ -40,6 +40,7 @@ public class ImportApplication implements CommandLineRunner {
 	private ILookupRepository lookupRepository;
 
 	private final String ARTIST_KEY = "artist:";
+	private final String ARTIST_BY_NAME_KEY = "artistbn:";
 	private final String CATALOGUE_GROUP_KEY = "catalogue_group:";
 	private final String MOVEMENT_KEY = "movement:";
 	private final String PLACE_KEY = "place:";
@@ -47,7 +48,7 @@ public class ImportApplication implements CommandLineRunner {
 	
 	private BatchInserter inserter;
 
-    private final Label ARTIST = DynamicLabel.label("Artist");
+    private final Label PERSON = DynamicLabel.label("Person");
     private final Label ARTWORK = DynamicLabel.label("Artwork");
     private final Label CATALOGUE_GROUP = DynamicLabel.label("CatalogueGroup");
     private final Label MOVEMENT = DynamicLabel.label("Movement");
@@ -77,7 +78,7 @@ public class ImportApplication implements CommandLineRunner {
 	 * 
 	 */
 	private void createIndexes() {
-		inserter.createDeferredSchemaIndex(ARTIST).on("name").create();
+		inserter.createDeferredSchemaIndex(PERSON).on("name").create();
         inserter.createDeferredSchemaIndex(ARTWORK).on("title").create();
         inserter.createDeferredSchemaIndex(ARTWORK).on("acno").create();
         inserter.createDeferredSchemaIndex(SUBJECT).on("name").create();
@@ -86,25 +87,43 @@ public class ImportApplication implements CommandLineRunner {
     }
 	
 	/**
-	 * Create the subject node using the batch inserter and place the generated
-	 * node id in the key-value store.
+	 * Create an artist node using the batch inserter. Store the physical
+	 * node id in the key-value store to allow for other nodes, such as
+	 * artworks, to connect to the artist.
 	 * 
-	 * @param subject
-	 * @param level	Where in the 3-level subject hierarchy is the subject?
-	 * @return A node id that can be used to connect other nodes to the subject
+	 * @param artist
+	 * @return Physical node id to allow other nodes connect to an artist
 	 */
-	private Long addSubjectNode(Subject subject, int level) {
-		Map<String, Object> properties = new HashMap<>();
-        properties.put("name", subject.getName());
-        properties.put("id", subject.getId());
-        properties.put("level", level);
-        long nodeId = inserter.createNode(properties, SUBJECT);
+	private Long addArtistNode(Artist artist) {
+        Map<String, Object> properties = new HashMap<>();
+        properties.put("name", artist.getName());
+        properties.put("id", artist.getId());
+        Long artistNode = inserter.createNode(properties, PERSON);
         
-        lookupRepository.add(this.SUBJECT_KEY + subject.getId(), Long.toString(nodeId));
+        // store artist node id in lookup to connect to artworks
+        lookupRepository.add(this.ARTIST_KEY + artist.getId(), Long.toString(artistNode));
         
-        return nodeId;
-	}	
+        // store artist name in lookup to match against subjects
+        lookupRepository.add(this.ARTIST_BY_NAME_KEY + artist.getName(), Long.toString(artistNode));
+        
+        return artistNode;
+	}
 
+	/**
+	 * Create an artwork node using the batch inserter
+	 * 
+	 * @param artwork
+	 * @return Physical node id to allow other nodes connect to the artwork
+	 */
+	private Long createArtworkNode(Artwork artwork) {
+        Map<String, Object> properties = new HashMap<>();
+        properties.put("title", artwork.getTitle());
+        properties.put("id", artwork.getId());
+        properties.put("acno", artwork.getAcno());
+        long artworkNode = inserter.createNode(properties, ARTWORK);
+        return artworkNode;
+	}	
+	
 	/**
 	 * Connect contributors / artists to an artwork. It is assumed the artist has
 	 * already been created.
@@ -121,21 +140,6 @@ public class ImportApplication implements CommandLineRunner {
        			inserter.createRelationship(cNode, artworkNode, CONTRIBUTED_TO, null);
         	}
         }
-	}
-
-	/**
-	 * Create an artwork node using the batch inserter
-	 * 
-	 * @param artwork
-	 * @return Physical node id to allow other nodes connect to the artwork
-	 */
-	private Long createArtworkNode(Artwork artwork) {
-        Map<String, Object> properties = new HashMap<>();
-        properties.put("title", artwork.getTitle());
-        properties.put("id", artwork.getId());
-        properties.put("acno", artwork.getAcno());
-        long artworkNode = inserter.createNode(properties, ARTWORK);
-        return artworkNode;
 	}
 
 	/**
@@ -174,25 +178,6 @@ public class ImportApplication implements CommandLineRunner {
         }
 	}
 
-	/**
-	 * Create an artist node using the batch inserter. Store the physical
-	 * node id in the key-value store to allow for other nodes, such as
-	 * artworks, to connect to the artist.
-	 * 
-	 * @param artist
-	 * @return Physical node id to allow other nodes connect to an artist
-	 */
-	private Long createArtistNode(Artist artist) {
-        Map<String, Object> properties = new HashMap<>();
-        properties.put("name", artist.getMda());
-        properties.put("id", artist.getId());
-        Long artistNode = inserter.createNode(properties, ARTIST);
-        
-        // store artist node id in lookup to connect to artworks
-        lookupRepository.add(this.ARTIST_KEY + artist.getId(), Long.toString(artistNode));
-        
-        return artistNode;
-	}
 
 	/**
 	 * Connect movements to an artist.
@@ -256,29 +241,70 @@ public class ImportApplication implements CommandLineRunner {
 	 * @return Physical node id
 	 */
 	private Long getOrCreateSubjectNode(Subject subject) {
-		return getOrCreateSubjectNode(subject, null);
+		return getOrCreateSubjectNode(subject, null, null);
 	}
 	
 	/**
-	 * Get or create subject node. If the node doesn't exist, create it.
+	 * Get or create subject node. If the node doesn't exist, create it. There can be special cases
+	 * of subject, such as named persons or places. These will still be added to the subject hierarchy,
+	 * but with more appropriate labels.
 	 * 
 	 * @param subject
 	 * @param parent	For 2nd and 3rd level subjects, this will be a non-null physical node id
+	 * @param parentObject The nature of the parent may alter the node label
 	 * @return	Physical node id
 	 */
-	private Long getOrCreateSubjectNode(Subject subject, Long parent) {
+	private Long getOrCreateSubjectNode(Subject subject, Long parent, Subject parentObject) {
 		Long node = null;
     	String value = lookupRepository.get(this.SUBJECT_KEY + subject.getId());
     	if (value != null) {
     		node = Long.parseLong(value);
     	} else {
-    		node = addSubjectNode(subject, 2);
+    		node = addSubjectNode(subject, parentObject);
     		if (parent != null) {
     			inserter.createRelationship(node, parent, TYPE_OF, null);
     		}
     	}
     	return node;
 	}
+	
+	/**
+	 * Create the subject node using the batch inserter and place the generated
+	 * node id in the key-value store.
+	 * 
+	 * @param subject
+	 * @param parentObject	Where in the 3-level subject hierarchy is the subject?
+	 * @return A node id that can be used to connect other nodes to the subject
+	 */
+	private Long addSubjectNode(Subject subject, Subject parentObject) {
+		Map<String, Object> properties = new HashMap<>();
+        Label sLabel = SUBJECT;
+        
+        if (parentObject != null && parentObject.isNamedIndividuals()) {
+        	sLabel = PERSON;
+        	properties.put("name", subject.getName());
+        	
+        	// check artist nodes to see if person already exists
+        	String value = lookupRepository.get(this.ARTIST_BY_NAME_KEY + subject.getName());
+        	if (value != null) {
+        		return Long.parseLong(value);
+        	} else {
+        		Long nodeId = inserter.createNode(properties, sLabel);
+                // store artist name in lookup to match against other subjects
+                lookupRepository.add(this.ARTIST_BY_NAME_KEY + subject.getName(), Long.toString(nodeId));
+                return nodeId;
+        	}
+        } else {
+        	properties.put("name", subject.getName());
+	        properties.put("id", subject.getId());
+        }
+        
+        Long nodeId = inserter.createNode(properties, sLabel);
+        
+        lookupRepository.add(this.SUBJECT_KEY + subject.getId(), Long.toString(nodeId));
+        
+        return nodeId;
+	}	
 	
 	/**
 	 * Given a list of top-level subjects, iterate through them and their child
@@ -292,10 +318,10 @@ public class ImportApplication implements CommandLineRunner {
 			Long s0Node = getOrCreateSubjectNode(subject0);
         	if (subject0.getChildren() != null) {
 	        	for (Subject subject1 : subject0.getChildren()) {   // top level
-	        		Long s1Node = getOrCreateSubjectNode(subject1, s0Node);
+	        		Long s1Node = getOrCreateSubjectNode(subject1, s0Node, null);
 	        		if (subject0.getChildren() != null) {
 		        		for (Subject subject2 : subject1.getChildren()) {    // 2nd level
-		        			Long s2Node = getOrCreateSubjectNode(subject2, s1Node);
+		        			Long s2Node = getOrCreateSubjectNode(subject2, s1Node, subject1);
 		        			inserter.createRelationship(artworkNode, s2Node, FEATURES, null);
 			        	}	
 	        		}
@@ -359,7 +385,7 @@ public class ImportApplication implements CommandLineRunner {
 		List<Path> files = FileFinder.getFileList(artistsDirectory, "*.json");
 		for (Path f : files) {
 			Artist artist = new ObjectMapper().readValue(f.toFile(), Artist.class);
-			Long artistNode = createArtistNode(artist);
+			Long artistNode = addArtistNode(artist);
 	        connectArtistToMovements(artistNode, artist.getMovements());
 	        connectArtistToBirthPlace(artistNode, artist.getBirth());
 		}
