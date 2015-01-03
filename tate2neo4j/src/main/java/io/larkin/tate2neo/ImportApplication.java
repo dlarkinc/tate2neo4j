@@ -50,6 +50,7 @@ public class ImportApplication implements CommandLineRunner {
 	
 	private BatchInserter inserter;
 
+    private final Label ARTIST = DynamicLabel.label("Artist");
     private final Label ARTWORK = DynamicLabel.label("Artwork");
     private final Label CATALOGUE_GROUP = DynamicLabel.label("CatalogueGroup");
     private final Label CLASSIFICATION = DynamicLabel.label("Classification");
@@ -58,6 +59,17 @@ public class ImportApplication implements CommandLineRunner {
     private final Label PERSON = DynamicLabel.label("Person");
     private final Label PLACE = DynamicLabel.label("Place");
     private final Label SUBJECT = DynamicLabel.label("Subject");
+    
+    // Labels with underscores for compatibility with Spring Data Neo4j (SDN)
+    private final Label _ARTIST = DynamicLabel.label("_Artist");
+    private final Label _ARTWORK = DynamicLabel.label("_Artwork");
+    private final Label _CATALOGUE_GROUP = DynamicLabel.label("_CatalogueGroup");
+    private final Label _CLASSIFICATION = DynamicLabel.label("_Classification");
+    private final Label _MEDIUM = DynamicLabel.label("_Medium");
+    private final Label _MOVEMENT = DynamicLabel.label("_Movement");
+    private final Label _PERSON = DynamicLabel.label("_Person");
+    private final Label _PLACE = DynamicLabel.label("_Place");
+    private final Label _SUBJECT = DynamicLabel.label("_Subject");
     
     private final RelationshipType BELONGS_TO = DynamicRelationshipType.withName("BELONGS_TO");
     private final RelationshipType BORN_IN = DynamicRelationshipType.withName("BORN_IN");
@@ -104,7 +116,9 @@ public class ImportApplication implements CommandLineRunner {
         Map<String, Object> properties = new HashMap<>();
         properties.put("name", artist.getName());
         properties.put("id", artist.getId());
-        Long artistNode = inserter.createNode(properties, PERSON);
+        // Doubly label - we know this is a person and an artist (other non-artist
+        // persons can be added through subjects)
+        Long artistNode = inserter.createNode(properties, ARTIST, _ARTIST, PERSON, _PERSON);
         
         // store artist node id in lookup to connect to artworks
         lookupRepository.add(this.ARTIST_KEY + artist.getId(), Long.toString(artistNode));
@@ -126,7 +140,7 @@ public class ImportApplication implements CommandLineRunner {
         properties.put("title", artwork.getTitle());
         properties.put("id", artwork.getId());
         properties.put("acno", artwork.getAcno());
-        long artworkNode = inserter.createNode(properties, ARTWORK);
+        long artworkNode = inserter.createNode(properties, ARTWORK, _ARTWORK);
         return artworkNode;
 	}	
 	
@@ -166,7 +180,7 @@ public class ImportApplication implements CommandLineRunner {
 		        if (value == null) {
 	        		HashMap<String, Object> properties = new HashMap<>();
 	    	        properties.put("name", placeName);
-	    	        placeNode = inserter.createNode(properties, PLACE);
+	    	        placeNode = inserter.createNode(properties, PLACE, _PLACE);
 	    	        
 	    	        // store new node id in lookup repository
 	    	        lookupRepository.add(this.PLACE_KEY + placeName, Long.toString(placeNode));
@@ -231,7 +245,7 @@ public class ImportApplication implements CommandLineRunner {
 			HashMap<String, Object> properties = new HashMap<>();
 	        properties.put("name", movement.getName());
 	        properties.put("id", movement.getId());
-	        movementNode = inserter.createNode(properties, MOVEMENT);
+	        movementNode = inserter.createNode(properties, MOVEMENT, _MOVEMENT);
 	        
 	        // store new node id in lookup repository
 	        lookupRepository.add(this.MOVEMENT_KEY + movement.getId(), Long.toString(movementNode));
@@ -285,9 +299,11 @@ public class ImportApplication implements CommandLineRunner {
 	private Long addSubjectNode(Subject subject, Subject parentObject) {
 		Map<String, Object> properties = new HashMap<>();
         Label sLabel = SUBJECT;
+        Label sLabelSdn = _SUBJECT;
         
         if (parentObject != null && parentObject.isNamedIndividuals()) {
         	sLabel = PERSON;
+            sLabelSdn = _PERSON;
         	properties.put("name", subject.getName());
         	
         	// check artist nodes to see if person already exists
@@ -305,7 +321,7 @@ public class ImportApplication implements CommandLineRunner {
 	        properties.put("id", subject.getId());
         }
         
-        Long nodeId = inserter.createNode(properties, sLabel);
+        Long nodeId = inserter.createNode(properties, sLabel, sLabelSdn);
         
         lookupRepository.add(this.SUBJECT_KEY + subject.getId(), Long.toString(nodeId));
         
@@ -359,7 +375,7 @@ public class ImportApplication implements CommandLineRunner {
 			HashMap<String, Object> properties = new HashMap<>();
 	        properties.put("shortTitle", catalogueGroup.getShortTitle() != null ? catalogueGroup.getShortTitle() : "[no short title]");
 	        properties.put("id", catalogueGroup.getId());
-	        cgNode = inserter.createNode(properties, CATALOGUE_GROUP);
+	        cgNode = inserter.createNode(properties, CATALOGUE_GROUP, _CATALOGUE_GROUP);
 	        
 	        // store new node id in lookup repository
 	        lookupRepository.add(this.CATALOGUE_GROUP_KEY + catalogueGroup.getId(), Long.toString(cgNode));
@@ -393,7 +409,7 @@ public class ImportApplication implements CommandLineRunner {
 		if (value == null) {
 			HashMap<String, Object> properties = new HashMap<>();
 	        properties.put("name", classification);
-	        clNode = inserter.createNode(properties, CLASSIFICATION);
+	        clNode = inserter.createNode(properties, CLASSIFICATION, _CLASSIFICATION);
 	        
 	        // store new node id in lookup repository
 	        lookupRepository.add(this.CLASSIFICATION_KEY + classification, Long.toString(clNode));
@@ -419,7 +435,7 @@ public class ImportApplication implements CommandLineRunner {
 			if (value == null) {
 				HashMap<String, Object> properties = new HashMap<>();
 	        	properties.put("name", trimmed);
-	        	mNode = inserter.createNode(properties, MEDIUM);
+	        	mNode = inserter.createNode(properties, MEDIUM, _MEDIUM);
 	        	lookupRepository.add(this.MEDIUM_KEY + trimmed, Long.toString(mNode));
 			} else {
 				mNode = Long.parseLong(value);
